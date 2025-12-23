@@ -1,0 +1,18 @@
+[project]
+name = "my-opentelemetry"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "celery==4.3",
+    "django==2.2",
+    "redis==3.2",
+    "djangorestframework==3.11",
+    "Pillow>=8.0.0,<10.0.0",
+    "opentelemetry-sdk>=1.27.0",
+    "opentelemetry-api>=1.27.0",
+    "opentelemetry-instrumentation-django>=0.50b0",
+    "opentelemetry-instrumentation-celery>=0.50b0",
+    "opentelemetry-exporter-otlp>=1.27.0",
+]
