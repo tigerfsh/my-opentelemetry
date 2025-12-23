@@ -9,10 +9,11 @@ RUN apt-get update && apt-get install -y \
     build-essential \
     libpq-dev \
     gcc \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # 安装uv包管理器
-RUN pip install uv
+RUN curl -LsSf https://astral.sh/uv/0.9.18/install.sh | sh
 
 # 复制项目依赖文件
 COPY pyproject.toml uv.lock ./
