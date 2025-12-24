@@ -14,7 +14,7 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'myproject.settings')
 
 app = Celery(
     'myproject',
-    broker=os.getenv('CELERY_BROKER_URL', 'redis://localhost:6379/0')
+    broker=os.getenv('CELERY_BROKER_URL', os.getenv('REDIS_URL', 'redis://localhost:6379/0'))
 )
 
 # Using a string here means the worker doesn't have to serialize

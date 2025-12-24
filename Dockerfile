@@ -10,16 +10,21 @@ RUN apt-get update && apt-get install -y \
     libpq-dev \
     gcc \
     curl \
+    default-libmysqlclient-dev \
+    pkg-config \
+    mariadb-client \
     && rm -rf /var/lib/apt/lists/*
 
 # 安装uv包管理器
-RUN curl -LsSf https://astral.sh/uv/0.9.18/install.sh | sh
+# RUN curl -LsSf https://astral.sh/uv/0.9.18/install.sh | sh
+RUN pip install uv -i https://pypi.tuna.tsinghua.edu.cn/simple
 
 # 复制项目依赖文件
 COPY pyproject.toml uv.lock ./
 
 # 安装项目依赖
-RUN uv pip install -r uv.lock
+# RUN uv pip install -r uv.lock
+RUN uv sync --frozen
 
 # 复制项目文件
 COPY . .

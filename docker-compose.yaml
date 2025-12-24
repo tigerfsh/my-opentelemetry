@@ -1,6 +1,18 @@
-version: '3.8'
-
 services:
+  mysql:
+    image: mysql:8.0
+    container_name: myapp_mysql
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: myapp_db
+      MYSQL_USER: myapp_user
+      MYSQL_PASSWORD: myapp_password
+    volumes:
+      - mysql_data:/var/lib/mysql
+    command: --default-authentication-plugin=mysql_native_password
+
   redis:
     image: redis:alpine
     container_name: myapp_redis
@@ -15,15 +27,20 @@ services:
     command: sh -c "uv run python manage.py migrate && uv run python manage.py runserver 0.0.0.0:8000"
     volumes:
       - .:/app
-      - sqlite_data:/app/db.sqlite3
       - media_data:/app/media
     ports:
       - "8000:8000"
     environment:
       - DEBUG=1
       - REDIS_URL=redis://redis:6379/0
+      - MYSQL_HOST=mysql
+      - MYSQL_PORT=3306
+      - MYSQL_DATABASE=myapp_db
+      - MYSQL_USER=myapp_user
+      - MYSQL_PASSWORD=myapp_password
       - OPENTELEMETRY_ENABLED=True
     depends_on:
+      - mysql
       - redis
 
   celery:
@@ -34,11 +51,16 @@ services:
     command: uv run celery -A myproject worker -l info
     volumes:
       - .:/app
-      - sqlite_data:/app/db.sqlite3
     environment:
       - REDIS_URL=redis://redis:6379/0
+      - MYSQL_HOST=mysql
+      - MYSQL_PORT=3306
+      - MYSQL_DATABASE=myapp_db
+      - MYSQL_USER=myapp_user
+      - MYSQL_PASSWORD=myapp_password
       - OPENTELEMETRY_ENABLED=True
     depends_on:
+      - mysql
       - redis
       - app
 
@@ -50,11 +72,16 @@ services:
   #   command: uv run celery -A myproject beat -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler
   #   volumes:
   #     - .:/app
-  #     - sqlite_data:/app/db.sqlite3
   #   environment:
   #     - REDIS_URL=redis://redis:6379/0
+  #     - MYSQL_HOST=mysql
+  #     - MYSQL_PORT=3306
+  #     - MYSQL_DATABASE=myapp_db
+  #     - MYSQL_USER=myapp_user
+  #     - MYSQL_PASSWORD=myapp_password
   #     - OPENTELEMETRY_ENABLED=True
   #   depends_on:
+  #     - mysql
   #     - redis
   #     - app
 
@@ -68,5 +95,5 @@ services:
       - COLLECTOR_OTLP_ENABLED=true
 
 volumes:
-  sqlite_data:
+  mysql_data:
   media_data:
