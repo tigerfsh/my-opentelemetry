@@ -1,3 +1,16 @@
+version: '3.8'
+
+# 定义共享的环境变量模板
+x-app-env: &app-env
+  REDIS_URL: redis://redis:6379/0
+  MYSQL_HOST: mysql
+  MYSQL_PORT: 3306
+  MYSQL_DATABASE: myapp_db
+  MYSQL_USER: myapp_user
+  MYSQL_PASSWORD: myapp_password
+  OPENTELEMETRY_ENABLED: "True"
+  OTEL_EXPORTER_JAEGER_ENDPOINT: "http://jaeger:14268/api/traces"
+
 services:
   mysql:
     image: mysql:8.0
@@ -37,24 +50,23 @@ services:
     container_name: myapp_django
     command: sh -c "uv run python manage.py migrate && uv run python manage.py runserver 0.0.0.0:8000"
     volumes:
-      - .:/app
       - media_data:/app/media
     ports:
       - "8000:8000"
     environment:
-      - DEBUG=1
-      - REDIS_URL=redis://redis:6379/0
-      - MYSQL_HOST=mysql
-      - MYSQL_PORT=3306
-      - MYSQL_DATABASE=myapp_db
-      - MYSQL_USER=myapp_user
-      - MYSQL_PASSWORD=myapp_password
-      - OPENTELEMETRY_ENABLED=True
+      # - DEBUG=1
+      << : *app-env
     depends_on:
       mysql:
         condition: service_healthy
       redis:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   celery:
     build:
@@ -62,44 +74,15 @@ services:
       dockerfile: Dockerfile
     container_name: myapp_celery
     command: uv run celery -A myproject worker -l info
-    volumes:
-      - .:/app
     environment:
-      - REDIS_URL=redis://redis:6379/0
-      - MYSQL_HOST=mysql
-      - MYSQL_PORT=3306
-      - MYSQL_DATABASE=myapp_db
-      - MYSQL_USER=myapp_user
-      - MYSQL_PASSWORD=myapp_password
-      - OPENTELEMETRY_ENABLED=True
+      << : *app-env
     depends_on:
       mysql:
         condition: service_healthy
       redis:
         condition: service_healthy
       app:
-        condition: service_started
-
-  # celery-beat:
-  #   build:
-  #     context: .
-  #     dockerfile: Dockerfile
-  #   container_name: myapp_celery_beat
-  #   command: uv run celery -A myproject beat -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler
-  #   volumes:
-  #     - .:/app
-  #   environment:
-  #     - REDIS_URL=redis://redis:6379/0
-  #     - MYSQL_HOST=mysql
-  #     - MYSQL_PORT=3306
-  #     - MYSQL_DATABASE=myapp_db
-  #     - MYSQL_USER=myapp_user
-  #     - MYSQL_PASSWORD=myapp_password
-  #     - OPENTELEMETRY_ENABLED=True
-  #   depends_on:
-  #     - mysql
-  #     - redis
-  #     - app
+        condition: service_healthy
 
   jaeger:
     image: jaegertracing/all-in-one:latest
@@ -109,6 +92,21 @@ services:
       - "4318:4318"    # OTLP over HTTP
     environment:
       - COLLECTOR_OTLP_ENABLED=true
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    command: npm run dev
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    ports:
+      - "8080:8080"
+    depends_on:
+      - app
+    environment:
+      - NODE_ENV=development
 
 volumes:
   mysql_data:

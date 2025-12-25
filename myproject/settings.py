@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     'rest_framework',  # 添加REST框架
     'users',  # 添加用户应用
     'mytask',  # 添加任务记录应用
+    'common_app',  # 添加通用应用
 ]
 
 MIDDLEWARE = [
