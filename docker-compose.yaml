@@ -12,12 +12,23 @@ services:
     volumes:
       - mysql_data:/var/lib/mysql
     command: --default-authentication-plugin=mysql_native_password
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
+      interval: 5s
+      start_period: 30s
 
   redis:
     image: redis:alpine
     container_name: myapp_redis
     ports:
       - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      timeout: 20s
+      retries: 10
+      interval: 5s
 
   app:
     build:
@@ -40,8 +51,10 @@ services:
       - MYSQL_PASSWORD=myapp_password
       - OPENTELEMETRY_ENABLED=True
     depends_on:
-      - mysql
-      - redis
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
 
   celery:
     build:
@@ -60,9 +73,12 @@ services:
       - MYSQL_PASSWORD=myapp_password
       - OPENTELEMETRY_ENABLED=True
     depends_on:
-      - mysql
-      - redis
-      - app
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      app:
+        condition: service_started
 
   # celery-beat:
   #   build:
