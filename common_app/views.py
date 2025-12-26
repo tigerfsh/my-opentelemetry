@@ -19,7 +19,7 @@ def health_check(request):
             import redis
             from django.conf import settings
             
-            redis_url = getattr(settings, 'REDIS_URL', 'redis://localhost:6379')
+            redis_url = getattr(settings, 'REDIS_URL', 'redis://redis:6379')
             redis_client = redis.from_url(redis_url)
             redis_client.ping()  # 尝试ping Redis服务器
             redis_status = True
@@ -60,34 +60,3 @@ def health_check(request):
             "error": str(e)
         }, status=503)
 
-
-def readiness_check(request):
-    """
-    就绪检查端点，检查应用是否准备好接收流量
-    """
-    try:
-        # 检查数据库连接
-        from django.db import connection
-        with connection.cursor() as cursor:
-            cursor.execute("SELECT 1")
-        
-        readiness_status = {
-            "status": "ready",
-            "details": {
-                "database": {
-                    "status": "ready"
-                },
-                "application": {
-                    "status": "ready"
-                }
-            }
-        }
-        
-        return JsonResponse(readiness_status)
-        
-    except Exception as e:
-        logger.error(f"Readiness check failed: {str(e)}")
-        return JsonResponse({
-            "status": "not ready",
-            "error": str(e)
-        }, status=503)
