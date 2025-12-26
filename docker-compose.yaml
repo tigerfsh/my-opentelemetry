@@ -56,6 +56,7 @@ services:
     environment:
       # - DEBUG=1
       << : *app-env
+      # ALLOWED_HOSTS: "myapp_django,localhost,127.0.0.1,0.0.0.0"
     depends_on:
       mysql:
         condition: service_healthy
@@ -63,7 +64,7 @@ services:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/api/common/health/"]
-      interval: 30s
+      interval: 120s
       timeout: 10s
       retries: 3
       start_period: 40s
