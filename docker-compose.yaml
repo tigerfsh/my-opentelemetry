@@ -13,7 +13,7 @@ x-app-env: &app-env
 
 services:
   mysql:
-    image: mysql:8.0
+    image: docker.1ms.run/mysql:8.0
     container_name: myapp_mysql
     ports:
       - "3306:3306"
@@ -33,7 +33,7 @@ services:
       start_period: 30s
 
   redis:
-    image: redis:alpine
+    image: docker.1ms.run/redis:alpine
     container_name: myapp_redis
     ports:
       - "6379:6379"
@@ -85,7 +85,7 @@ services:
         condition: service_healthy
 
   jaeger:
-    image: jaegertracing/all-in-one:latest
+    image: docker.1ms.run/jaegertracing/all-in-one:latest
     container_name: jaeger
     ports:
       - "16686:16686"  # Web UI
