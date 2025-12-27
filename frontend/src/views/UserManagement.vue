@@ -14,34 +14,54 @@
         <button class="add-user-btn" @click="openCreateModal">添加用户</button>
       </div>
       
-      <div class="users-grid">
-        <div 
-          v-for="user in filteredUsers" 
-          :key="user.id" 
-          class="user-card"
-        >
-          <div class="user-info">
-            <div class="user-avatar">
-              {{ user.username.charAt(0).toUpperCase() }}
-            </div>
-            <div class="user-details">
-              <h3 class="username">{{ user.username }}</h3>
-              <p class="email">{{ user.email || '未设置邮箱' }}</p>
-              <p class="name">{{ user.first_name }} {{ user.last_name }}</p>
-              <p class="date">加入时间: {{ formatDate(user.date_joined) }}</p>
-              <p class="role">{{ user.is_staff ? '管理员' : '普通用户' }}</p>
-            </div>
-          </div>
-          <div class="user-actions">
-            <button class="edit-btn" @click="openEditModal(user)">编辑</button>
-            <button class="delete-btn" @click="confirmDeleteUser(user.id)">删除</button>
-          </div>
-        </div>
+      <!-- 表格形式的用户列表 -->
+      <div class="users-table-container" v-if="filteredUsers.length > 0">
+        <table class="users-table">
+          <thead>
+            <tr>
+              <th>用户名</th>
+              <th>邮箱</th>
+              <th>姓名</th>
+              <th>加入时间</th>
+              <th>角色</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr 
+              v-for="(user, index) in filteredUsers" 
+              :key="user.id || index"
+              class="user-row"
+            >
+              <td class="username">{{ user && user.username ? user.username : '未设置用户名' }}</td>
+              <td class="email">{{ user && user.email ? user.email : '未设置邮箱' }}</td>
+              <td class="name">{{ user && (user.first_name || user.last_name) ? (user.first_name || '') + ' ' + (user.last_name || '') : '' }}</td>
+              <td class="date">{{ user ? formatDate(user.date_joined) : '' }}</td>
+              <td class="role">{{ user && user.is_staff ? '管理员' : '普通用户' }}</td>
+              <td class="actions">
+                <select class="action-select" @change="handleAction($event, user)">
+                  <option value="" disabled selected>操作</option>
+                  <option :value="'edit'">编辑</option>
+                  <option :value="'delete'">删除</option>
+                </select>
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
     
     <!-- 加载指示器 -->
     <div v-if="loading" class="loading">加载中...</div>
+    
+    <!-- 无数据提示 -->
+    <div v-if="!loading && filteredUsers.length === 0 && users.length === 0" class="no-data">
+      暂无用户数据
+    </div>
+    
+    <div v-if="!loading && filteredUsers.length === 0 && users.length > 0" class="no-data">
+      没有找到匹配的用户
+    </div>
     
     <!-- 模态框 -->
     <div v-if="showModal" class="modal-overlay" @click="closeModal">
@@ -55,6 +75,7 @@
               type="text" 
               required 
               class="form-input"
+              :disabled="isEditing"
             />
           </div>
           <div class="form-group">
@@ -87,7 +108,7 @@
               v-if="!isEditing"
               v-model="form.password" 
               type="password" 
-              :required="!isEditing"
+              required
               class="form-input"
             />
             <p v-else class="password-placeholder">密码保持不变</p>
@@ -104,7 +125,7 @@
           
           <div class="modal-actions">
             <button type="button" class="cancel-btn" @click="closeModal">取消</button>
-            <button type="submit" class="save-btn">保存</button>
+            <button type="submit" class="save-btn">{{ isEditing ? '更新' : '创建' }}</button>
           </div>
         </form>
       </div>
@@ -156,29 +177,54 @@ export default {
     async loadUsers() {
       this.loading = true
       try {
+        console.log('正在获取用户列表...')
         const response = await userAPI.getUsers()
-        this.users = response.data
-        this.filteredUsers = response.data
+        console.log('API响应数据:', response.data)
+        
+        // 确保数据是数组格式
+        const usersData = Array.isArray(response.data) ? response.data : (response.data?.results || []);
+        console.log('处理后的用户数据:', usersData)
+        
+        this.users = usersData;
+        this.filteredUsers = [...this.users]; // 确保复制数组
+        
+        console.log('设置后的users:', this.users)
+        console.log('设置后的filteredUsers:', this.filteredUsers)
       } catch (error) {
         console.error('加载用户失败:', error)
-        alert('加载用户失败')
+        console.error('错误详情:', error.response || error.message)
+        // 尝试获取错误响应
+        if (error.response) {
+          console.error('响应状态:', error.response.status)
+          console.error('响应数据:', error.response.data)
+        }
+        alert(`加载用户失败: ${error.message || '未知错误'}`)
+        // 即使出错也要隐藏加载状态
+        this.users = []
+        this.filteredUsers = []
       } finally {
         this.loading = false
       }
     },
     filterUsers() {
+      console.log('执行过滤，搜索词:', this.searchQuery)
+      console.log('原始用户数:', this.users.length)
+      
       if (!this.searchQuery) {
-        this.filteredUsers = this.users
+        this.filteredUsers = [...this.users] // 确保复制数组
       } else {
         const query = this.searchQuery.toLowerCase()
         this.filteredUsers = this.users.filter(user => 
-          user.username.toLowerCase().includes(query) || 
-          user.email.toLowerCase().includes(query) ||
-          `${user.first_name} ${user.last_name}`.toLowerCase().includes(query)
+          user && // 确保user存在
+          (user.username && user.username.toLowerCase().includes(query)) || 
+          (user.email && user.email.toLowerCase().includes(query)) ||
+          (`${user.first_name || ''} ${user.last_name || ''}`).toLowerCase().includes(query)
         )
       }
+      console.log('过滤后的用户数:', this.filteredUsers.length)
     },
     openCreateModal() {
+      console.log('打开创建用户模态框')
       this.isEditing = false
       this.form = {
         username: '',
@@ -191,50 +237,91 @@ export default {
       this.showModal = true
     },
     openEditModal(user) {
+      console.log('打开编辑用户模态框', user)
       this.isEditing = true
       this.editingUserId = user.id
       this.form = {
-        username: user.username,
-        email: user.email,
-        first_name: user.first_name,
-        last_name: user.last_name,
-        password: '',
-        is_staff: user.is_staff
+        username: user.username || '',
+        email: user.email || '',
+        first_name: user.first_name || '',
+        last_name: user.last_name || '',
+        // 编辑时不需要设置密码字段
+        is_staff: user.is_staff || false
       }
       this.showModal = true
     },
     closeModal() {
+      console.log('关闭模态框')
       this.showModal = false
     },
     closeDeleteConfirm() {
+      console.log('关闭删除确认框')
       this.showDeleteConfirm = false
     },
+    handleAction(event, user) {
+      const action = event.target.value;
+      event.target.value = ''; // 重置选择框
+      
+      if (action === 'edit') {
+        this.openEditModal(user);
+      } else if (action === 'delete') {
+        this.confirmDeleteUser(user.id);
+      }
+    },
     async submitUser() {
+      console.log('提交用户数据', this.form)
       try {
         if (this.isEditing) {
-          await userAPI.updateUser(this.editingUserId, this.form)
+          console.log('更新用户', this.editingUserId)
+          // 在编辑模式下，创建一个不包含密码的用户数据对象
+          const userUpdateData = { ...this.form };
+          if (!userUpdateData.password) {
+            delete userUpdateData.password;
+          }
+          await userAPI.updateUser(this.editingUserId, userUpdateData)
         } else {
+          console.log('创建新用户')
           await userAPI.createUser(this.form)
         }
         await this.loadUsers()
         this.closeModal()
+        // 重置表单
+        this.form = {
+          username: '',
+          email: '',
+          first_name: '',
+          last_name: '',
+          password: '',
+          is_staff: false
+        }
       } catch (error) {
         console.error('保存用户失败:', error)
-        alert('保存用户失败: ' + (error.response?.data || '未知错误'))
+        console.error('错误详情:', error.response || error.message)
+        if (error.response) {
+          console.error('响应状态:', error.response.status)
+          console.error('响应数据:', error.response.data)
+          alert(`保存用户失败: ${JSON.stringify(error.response.data)}`)
+        } else {
+          alert('保存用户失败: ' + error.message || '未知错误')
+        }
       }
     },
     confirmDeleteUser(userId) {
+      console.log('确认删除用户', userId)
       this.editingUserId = userId
       this.showDeleteConfirm = true
     },
     async deleteUser() {
+      console.log('删除用户', this.editingUserId)
       try {
         await userAPI.deleteUser(this.editingUserId)
         await this.loadUsers()
         this.closeDeleteConfirm()
       } catch (error) {
         console.error('删除用户失败:', error)
-        alert('删除用户失败')
+        console.error('错误详情:', error.response || error.message)
+        console.error('错误详情:', error.response || error.message)
+        alert('删除用户失败: ' + error.message || '未知错误')
       }
     },
     formatDate(dateString) {
@@ -250,6 +337,14 @@ export default {
 .user-management {
   max-width: 1200px;
   margin: 0 auto;
+  padding: 20px;
+}
+
+.debug-info {
+  padding: 10px;
+  background-color: #f0f0f0;
+  margin-bottom: 20px;
+  border-radius: 4px;
 }
 
 .page-title {
@@ -300,121 +395,56 @@ export default {
   background-color: #0062cc;
 }
 
-.users-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 20px;
+.users-table-container {
+  overflow-x: auto;
 }
 
-.user-card {
-  background: white;
-  border-radius: 14px;
+.users-table {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: white;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  border-radius: 12px;
   overflow: hidden;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-  transition: transform 0.2s, box-shadow 0.2s;
 }
 
-.user-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(0,0,0,0.12);
-}
-
-.user-info {
-  padding: 20px;
-}
-
-.user-avatar {
-  width: 60px;
-  height: 60px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #007aff, #34c759);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  font-size: 24px;
-  font-weight: bold;
-  margin-bottom: 16px;
-}
-
-.user-details {
+.users-table th,
+.users-table td {
+  padding: 12px 16px;
   text-align: left;
+  border-bottom: 1px solid #e0e0e6;
 }
 
-.username {
-  font-size: 18px;
+.users-table th {
+  background-color: #f8f9fa;
   font-weight: 600;
-  margin: 0 0 6px 0;
   color: #1d1d1f;
 }
 
-.email {
-  font-size: 14px;
-  color: #86868b;
-  margin: 0 0 4px 0;
+.user-row:hover {
+  background-color: #f8f9fa;
 }
 
-.name {
-  font-size: 14px;
-  color: #86868b;
-  margin: 0 0 4px 0;
-}
-
-.date {
-  font-size: 12px;
-  color: #8e8e93;
-  margin: 6px 0;
-}
-
-.role {
-  font-size: 12px;
-  background-color: #f2f2f7;
-  display: inline-block;
-  padding: 4px 8px;
-  border-radius: 20px;
-  color: #646464;
-}
-
-.user-actions {
-  display: flex;
-  border-top: 1px solid #f2f2f7;
-  padding: 12px 20px;
-  gap: 10px;
-}
-
-.edit-btn, .delete-btn {
-  flex: 1;
-  padding: 8px 0;
-  border: none;
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 500;
+.action-select {
+  padding: 6px 10px;
+  border: 1px solid #d2d2d7;
+  border-radius: 6px;
+  background-color: white;
   cursor: pointer;
+  min-width: 80px;
 }
 
-.edit-btn {
-  background-color: #f2f2f7;
-  color: #007aff;
+.action-select:focus {
+  outline: none;
+  border-color: #007aff;
 }
 
-.edit-btn:hover {
-  background-color: #e5e5ea;
-}
-
-.delete-btn {
-  background-color: #ff3b30;
-  color: white;
-}
-
-.delete-btn:hover {
-  background-color: #e3352d;
-}
-
-.loading {
+.loading,
+.no-data {
   text-align: center;
   padding: 40px;
   font-size: 18px;
-  color: #86868b;
+  color: #636366;
 }
 
 .modal-overlay {
@@ -428,43 +458,33 @@ export default {
   align-items: center;
   justify-content: center;
   z-index: 1000;
-  padding: 20px;
 }
 
 .modal-content {
-  background: white;
-  border-radius: 14px;
-  width: 100%;
+  background-color: white;
+  padding: 24px;
+  border-radius: 12px;
+  width: 90%;
   max-width: 500px;
-  padding: 0;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-  animation: modalAppear 0.3s ease-out;
-}
-
-@keyframes modalAppear {
-  from { transform: scale(0.9); opacity: 0; }
-  to { transform: scale(1); opacity: 1; }
+  max-height: 90vh;
+  overflow-y: auto;
 }
 
 .modal-title {
-  padding: 20px 20px 0 20px;
-  margin: 0;
-  font-size: 22px;
+  margin-top: 0;
+  margin-bottom: 16px;
+  font-size: 20px;
   font-weight: 600;
-  color: #1d1d1f;
 }
 
 .form-group {
-  padding: 16px 20px;
-  border-bottom: 1px solid #f2f2f7;
+  margin-bottom: 16px;
 }
 
 .form-group label {
   display: block;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
   font-weight: 500;
-  color: #1d1d1f;
-  font-size: 16px;
 }
 
 .form-input {
@@ -483,66 +503,59 @@ export default {
 }
 
 .password-placeholder {
-  color: #8e8e93;
   font-style: italic;
-  margin: 0;
+  color: #8e8e93;
+  margin: 8px 0;
 }
 
 .modal-actions {
   display: flex;
   gap: 12px;
-  padding: 20px;
+  justify-content: flex-end;
+  margin-top: 20px;
 }
 
-.cancel-btn, .save-btn {
-  flex: 1;
-  padding: 12px 0;
-  border-radius: 10px;
+.cancel-btn,
+.save-btn {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 8px;
   font-size: 16px;
   font-weight: 500;
   cursor: pointer;
+  transition: background-color 0.2s;
 }
 
 .cancel-btn {
-  background-color: #f2f2f7;
-  color: #86868b;
-  border: none;
+  background-color: #e0e0e6;
+  color: #1d1d1f;
 }
 
 .cancel-btn:hover {
-  background-color: #e5e5ea;
+  background-color: #d2d2d7;
 }
 
 .save-btn {
   background-color: #007aff;
   color: white;
-  border: none;
 }
 
 .save-btn:hover {
   background-color: #0062cc;
 }
 
-.delete-btn.confirm {
-  background-color: #ff3b30;
-  color: white;
-}
-
-.delete-btn.confirm:hover {
-  background-color: #e3352d;
-}
-
 @media (max-width: 768px) {
-  .users-grid {
-    grid-template-columns: 1fr;
+  .users-table {
+    font-size: 14px;
+  }
+  
+  .users-table th,
+  .users-table td {
+    padding: 8px;
   }
   
   .controls {
     flex-direction: column;
-  }
-  
-  .search-input {
-    min-width: 100%;
   }
 }
 </style>

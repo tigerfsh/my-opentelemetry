@@ -16,9 +16,8 @@ export default defineConfig({
     port: 8080,
     proxy: {
       '/api': {
-        target: 'http://myapp_django:8000',
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api/, '')
+        target: 'http://app:8000',
+        changeOrigin: true
       }
     }
   }

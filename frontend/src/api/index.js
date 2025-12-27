@@ -9,6 +9,18 @@ const api = axios.create({
   },
 })
 
+// 添加响应拦截器用于调试
+api.interceptors.response.use(
+  response => {
+    console.log(`API响应: ${response.config.url}`, response);
+    return response;
+  },
+  error => {
+    console.error(`API错误: ${error.config?.url}`, error.response || error.message);
+    return Promise.reject(error);
+  }
+);
+
 export const userAPI = {
   // 获取用户列表
   getUsers: () => api.get('/users/'),
