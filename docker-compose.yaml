@@ -10,6 +10,10 @@ x-app-env: &app-env
   MYSQL_PASSWORD: myapp_password
   OPENTELEMETRY_ENABLED: "True"
   OTEL_EXPORTER_JAEGER_ENDPOINT: "http://jaeger:14268/api/traces"
+  RUSTFS_ACCESS_KEY: rustfsadmin
+  RUSTFS_SECRET_KEY: rustfsadmin123
+  RUSTFS_ENDPOINT_URL: http://rustfs:9000
+  RUSTFS_BUCKET_NAME: user-avatars
 
 services:
   mysql:
@@ -62,6 +66,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      rustfs:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/api/common/health/"]
       interval: 120s
@@ -83,6 +89,8 @@ services:
       redis:
         condition: service_healthy
       app:
+        condition: service_healthy
+      rustfs:
         condition: service_healthy
 
   jaeger:
@@ -109,6 +117,30 @@ services:
     environment:
       - NODE_ENV=development
 
+  rustfs:
+    image: docker.1ms.run/rustfs/rustfs:latest
+    container_name: rustfs_object_storage
+    restart: unless-stopped
+    ports:
+      - "9000:9000"  # S3 API端口
+      - "9001:9001"  # Web控制台端口
+    environment:
+      - RUSTFS_ACCESS_KEY=rustfsadmin
+      - RUSTFS_SECRET_KEY=rustfsadmin123
+      - RUSTFS_CONSOLE_ENABLE=true
+      - RUSTFS_CONSOLE_ADDRESS=0.0.0.0:9001
+    volumes:
+      - rustfs_data:/data
+      - rustfs_logs:/logs
+    healthcheck:
+      test: ["CMD", "sh", "-c", "curl -f http://localhost:9000/health && curl -f http://localhost:9001/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
 volumes:
   mysql_data:
   media_data:
+  rustfs_data:
+  rustfs_logs:

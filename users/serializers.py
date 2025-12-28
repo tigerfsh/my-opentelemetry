@@ -4,6 +4,16 @@ from .models import UserProfile
 
 
 class UserProfileSerializer(serializers.ModelSerializer):
+    # 自定义日期字段格式
+    birth_date = serializers.DateField(format='%Y-%m-%d', input_formats=['%Y-%m-%d', 'iso-8601'], required=False, allow_null=True)
+    
+    def to_internal_value(self, data):
+        # 处理空字符串的日期字段，将其转换为None
+        if 'birth_date' in data and (data['birth_date'] == '' or data['birth_date'] is None):
+            data = data.copy()  # 避免修改原始数据
+            data['birth_date'] = None
+        return super().to_internal_value(data)
+    
     class Meta:
         model = UserProfile
         fields = ('id', 'bio', 'phone_number', 'location', 'birth_date', 'avatar', 'thumbnail')

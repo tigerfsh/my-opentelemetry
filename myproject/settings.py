@@ -132,7 +132,17 @@ STATIC_URL = '/static/'
 
 # Media files (User uploads)
 MEDIA_URL = '/media/'
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+# MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
+# RustFS/S3 storage configuration for avatars
+RUSTFS_ACCESS_KEY = os.getenv('RUSTFS_ACCESS_KEY', 'rustfsadmin')
+RUSTFS_SECRET_KEY = os.getenv('RUSTFS_SECRET_KEY', 'rustfsadmin123')
+RUSTFS_ENDPOINT_URL = os.getenv('RUSTFS_ENDPOINT_URL', 'http://rustfs:9000')
+RUSTFS_BUCKET_NAME = os.getenv('RUSTFS_BUCKET_NAME', 'user-avatars')
+RUSTFS_REGION_NAME = os.getenv('RUSTFS_REGION_NAME', 'us-east-1')
+
+# Use RustFS for media files (avatars and thumbnails)
+DEFAULT_FILE_STORAGE = 'users.storage.RustFSStorage'
 
 # OpenTelemetry Configuration
 OTEL_SERVICE_NAME = os.getenv('OTEL_SERVICE_NAME', 'my-opentelemetry-service')

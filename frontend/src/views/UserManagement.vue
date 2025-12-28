@@ -298,6 +298,7 @@ export default {
       phoneError: null,
       placeholderImage: null,
       defaultAvatarImage: null,
+      selectedAvatarFile: null,
     }
   },
   created() {
@@ -409,6 +410,14 @@ export default {
     },
     async openBioModal(user) {
       console.log('打开简介编辑模态框', user)
+      
+      // 检查user对象和user.id是否存在
+      if (!user || !user.id) {
+        console.error('无效的用户对象或用户ID:', user);
+        alert('无法编辑简介：用户信息不完整');
+        return;
+      }
+      
       this.editingUser = user
       
       // 获取用户的完整profile信息
@@ -472,7 +481,15 @@ export default {
           console.log('创建新用户')
           await userAPI.createUser(this.form)
         }
-        await this.loadUsers()
+        
+        try {
+          await this.loadUsers();
+        } catch (loadError) {
+          // 即使重新加载用户列表失败，也不应影响用户对更新操作成功与否的判断
+          console.error('重新加载用户列表失败，但用户操作成功:', loadError);
+          alert('用户已成功' + (this.isEditing ? '更新' : '创建') + '，但列表刷新失败。请手动刷新页面。');
+        }
+        
         this.closeModal()
         // 重置表单
         this.form = {
@@ -498,23 +515,30 @@ export default {
     async submitBio() {
       console.log('提交简介数据', this.bioForm)
       try {
-        // 使用profile接口更新简介
-        const profileData = {
-          bio: this.bioForm.bio
-        };
+        // 使用FormData支持可能的文件上传
+        const formData = new FormData();
+        formData.append('bio', this.bioForm.bio || '');
         
-        await userAPI.updateUserProfile(this.editingUser.id, profileData)
+        await userAPI.updateUserProfile(this.editingUser.id, formData);
         
-        // 更新本地用户数据中的简介
-        const userIndex = this.users.findIndex(u => u.id === this.editingUser.id);
-        if (userIndex !== -1) {
-          this.users[userIndex].bio = this.bioForm.bio;
+        try {
+          // 更新本地用户数据中的简介
+          const userIndex = this.users.findIndex(u => u.id === this.editingUser.id);
+          if (userIndex !== -1) {
+            this.users[userIndex].bio = this.bioForm.bio;
+          }
+          // 更新过滤后的用户数据
+          const filteredUserIndex = this.filteredUsers.findIndex(u => u.id === this.editingUser.id);
+          if (filteredUserIndex !== -1) {
+            this.filteredUsers[filteredUserIndex].bio = this.bioForm.bio;
+          }
+        } catch (updateLocalError) {
+          console.error('更新本地用户数据失败，但服务器更新成功:', updateLocalError);
+          // 即使更新本地数据失败，也不应影响用户对更新操作成功与否的判断
+          // 可以提示用户数据已更新，但本地显示可能不一致
+          alert('用户简介已成功更新，但本地显示可能不一致。请手动刷新页面。');
         }
-        // 更新过滤后的用户数据
-        const filteredUserIndex = this.filteredUsers.findIndex(u => u.id === this.editingUser.id);
-        if (filteredUserIndex !== -1) {
-          this.filteredUsers[filteredUserIndex].bio = this.bioForm.bio;
-        }
+        
         this.closeBioModal()
       } catch (error) {
         console.error('更新简介失败:', error)
@@ -641,10 +665,12 @@ export default {
         return;
       }
       
+      // 保存文件对象以便后续上传
+      this.selectedAvatarFile = file;
+      
       const reader = new FileReader();
       reader.onload = (e) => {
-        // For now, we just update the avatar field with the data URL
-        // In a real implementation, you might want to upload the file to a server
+        // 更新预览图片
         this.profileDetail.avatar = e.target.result;
       };
       reader.readAsDataURL(file);
@@ -661,10 +687,57 @@ export default {
         const profileData = { ...this.profileDetail };
         delete profileData.thumbnail;
         
-        await userAPI.updateUserProfile(this.currentProfileUserId, profileData);
+        // 检查是否有新的头像文件需要上传
+        if (this.selectedAvatarFile) {
+          // 使用FormData上传文件
+          const formData = new FormData();
+          
+          // 如果avatar字段是文件对象，添加到formData
+          if (this.selectedAvatarFile instanceof File) {
+            formData.append('avatar', this.selectedAvatarFile, this.selectedAvatarFile.name);
+          }
+          
+          // 添加其他字段到formData
+          Object.keys(profileData).forEach(key => {
+            if (key !== 'avatar') { // 避免重复添加avatar
+              // 特殊处理日期字段，确保格式为 YYYY-MM-DD
+              if (key === 'birth_date' && profileData[key]) {
+                // 如果是日期对象，转换为字符串格式
+                if (profileData[key] instanceof Date) {
+                  formData.append(key, profileData[key].toISOString().split('T')[0]);
+                } else {
+                  // 确保日期字符串是 YYYY-MM-DD 格式
+                  const dateStr = profileData[key];
+                  formData.append(key, dateStr);
+                }
+              } else {
+                formData.append(key, profileData[key]);
+              }
+            }
+          });
+          
+          await userAPI.updateUserProfileWithFile(this.currentProfileUserId, formData);
+        } else {
+          // 没有新文件时使用普通更新，也需要处理日期格式
+          const processedProfileData = { ...profileData };
+          if (processedProfileData.birth_date instanceof Date) {
+            processedProfileData.birth_date = processedProfileData.birth_date.toISOString().split('T')[0];
+          }
+          
+          await userAPI.updateUserProfile(this.currentProfileUserId, processedProfileData);
+        }
+        
         this.closeProfileModal();
         // 重新加载用户列表以更新显示
-        await this.loadUsers();
+        try {
+          await this.loadUsers();
+        } catch (loadError) {
+          // 即使重新加载用户列表失败，也不应影响用户对更新操作成功与否的判断
+          // 因为profile已经更新成功了
+          console.error('重新加载用户列表失败，但资料更新成功:', loadError);
+          // 可以提示用户数据已更新，但列表刷新失败
+          alert('用户资料已成功更新，但列表刷新失败。请手动刷新页面。');
+        }
       } catch (error) {
         console.error('更新用户资料失败:', error);
         alert('更新用户资料失败: ' + (error.message || '未知错误'));
@@ -679,11 +752,18 @@ export default {
       console.log('删除用户', this.editingUserId)
       try {
         await userAPI.deleteUser(this.editingUserId)
-        await this.loadUsers()
+        
+        try {
+          await this.loadUsers();
+        } catch (loadError) {
+          // 即使重新加载用户列表失败，也不应影响用户对删除操作成功与否的判断
+          console.error('重新加载用户列表失败，但用户已成功删除:', loadError);
+          alert('用户已成功删除，但列表刷新失败。请手动刷新页面。');
+        }
+        
         this.closeDeleteConfirm()
       } catch (error) {
         console.error('删除用户失败:', error)
-        console.error('错误详情:', error.response || error.message)
         console.error('错误详情:', error.response || error.message)
         alert('删除用户失败: ' + error.message || '未知错误')
       }
@@ -1005,3 +1085,14 @@ export default {
   }
 }
 </style>
+
+
+
+
+
+
+
+
+
+
+

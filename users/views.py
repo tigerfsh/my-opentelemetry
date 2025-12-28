@@ -42,6 +42,7 @@ def user_profile_detail(request, user_id):
             }, status=200)
         
         elif request.method == 'PUT':
+            # 对于文件上传，需要使用request.FILES而不是request.data
             serializer = UserProfileSerializer(profile, data=request.data, partial=True)
             if serializer.is_valid():
                 serializer.save()
