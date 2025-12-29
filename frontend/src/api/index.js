@@ -9,6 +9,26 @@ const api = axios.create({
   },
 })
 
+// 请求拦截器 - 将空字符串转换为null
+api.interceptors.request.use(
+  config => {
+    // 处理请求参数，将空字符串转换为null
+    if (config.data) {
+      config.data = convertEmptyStringsToNull(config.data);
+    }
+    
+    // 如果是GET请求，处理params中的空字符串
+    if (config.params) {
+      config.params = convertEmptyStringsToNull(config.params);
+    }
+    
+    return config;
+  },
+  error => {
+    return Promise.reject(error);
+  }
+);
+
 // 添加响应拦截器用于调试
 api.interceptors.response.use(
   response => {
@@ -21,9 +41,36 @@ api.interceptors.response.use(
   }
 );
 
+// 递归函数：将对象或数组中的空字符串转换为null
+function convertEmptyStringsToNull(obj) {
+  if (obj === null || obj === undefined) {
+    return obj;
+  }
+  
+  if (typeof obj === 'string') {
+    return obj === '' ? null : obj;
+  }
+  
+  if (Array.isArray(obj)) {
+    return obj.map(item => convertEmptyStringsToNull(item));
+  }
+  
+  if (typeof obj === 'object') {
+    const result = {};
+    for (const key in obj) {
+      if (obj.hasOwnProperty(key)) {
+        result[key] = convertEmptyStringsToNull(obj[key]);
+      }
+    }
+    return result;
+  }
+  
+  return obj;
+}
+
 export const userAPI = {
   // 获取用户列表
-  getUsers: () => api.get('/users/'),
+  getUsers: (params = {}) => api.get('/users/', { params }),
   
   // 获取单个用户
   getUser: (id) => api.get(`/users/${id}/`),

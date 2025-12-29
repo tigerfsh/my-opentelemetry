@@ -79,10 +79,11 @@
             <input 
               v-model="form.username" 
               type="text" 
-              required 
               class="form-input"
+              :class="{ 'error': errors.username }"
               :disabled="isEditing"
             />
+            <div v-if="errors.username" class="error-message">{{ errors.username }}</div>
           </div>
           <div class="form-group">
             <label>邮箱</label>
@@ -90,7 +91,9 @@
               v-model="form.email" 
               type="email" 
               class="form-input"
+              :class="{ 'error': errors.email }"
             />
+            <div v-if="errors.email" class="error-message">{{ errors.email }}</div>
           </div>
           <div class="form-group">
             <label>名字</label>
@@ -98,7 +101,9 @@
               v-model="form.first_name" 
               type="text" 
               class="form-input"
+              :class="{ 'error': errors.first_name }"
             />
+            <div v-if="errors.first_name" class="error-message">{{ errors.first_name }}</div>
           </div>
           <div class="form-group">
             <label>姓氏</label>
@@ -106,7 +111,9 @@
               v-model="form.last_name" 
               type="text" 
               class="form-input"
+              :class="{ 'error': errors.last_name }"
             />
+            <div v-if="errors.last_name" class="error-message">{{ errors.last_name }}</div>
           </div>
           <div class="form-group">
             <label>密码</label>
@@ -114,9 +121,10 @@
               v-if="!isEditing"
               v-model="form.password" 
               type="password" 
-              required
               class="form-input"
+              :class="{ 'error': errors.password }"
             />
+            <div v-if="!isEditing && errors.password" class="error-message">{{ errors.password }}</div>
             <p v-else class="password-placeholder">密码保持不变</p>
           </div>
           <div class="form-group">
@@ -290,6 +298,13 @@ export default {
         last_name: '',
         password: '',
         is_staff: false
+      },
+      errors: {
+        username: '',
+        email: '',
+        first_name: '',
+        last_name: '',
+        password: ''
       },
       bioForm: {
         bio: ''
@@ -468,6 +483,45 @@ export default {
     },
     async submitUser() {
       console.log('提交用户数据', this.form)
+      
+      // 清空之前的错误
+      this.clearErrors();
+      
+      // 在创建模式下验证必填字段
+      if (!this.isEditing) {
+        let hasErrors = false;
+        
+        if (!this.form.username || this.form.username.trim() === '') {
+          this.errors.username = '用户名为必填项';
+          hasErrors = true;
+        }
+        
+        if (!this.form.email || this.form.email.trim() === '') {
+          this.errors.email = '邮箱为必填项';
+          hasErrors = true;
+        }
+        
+        if (!this.form.first_name || this.form.first_name.trim() === '') {
+          this.errors.first_name = '名字为必填项';
+          hasErrors = true;
+        }
+        
+        if (!this.form.last_name || this.form.last_name.trim() === '') {
+          this.errors.last_name = '姓氏为必填项';
+          hasErrors = true;
+        }
+        
+        if (!this.form.password || this.form.password.trim() === '') {
+          this.errors.password = '密码为必填项';
+          hasErrors = true;
+        }
+        
+        // 如果有错误，则不提交
+        if (hasErrors) {
+          return;
+        }
+      }
+      
       try {
         if (this.isEditing) {
           console.log('更新用户', this.editingUserId)
@@ -510,6 +564,11 @@ export default {
         } else {
           alert('保存用户失败: ' + error.message || '未知错误')
         }
+      }
+    },
+    clearErrors() {
+      for (let key in this.errors) {
+        this.errors[key] = '';
       }
     },
     async submitBio() {
@@ -1085,6 +1144,8 @@ export default {
   }
 }
 </style>
+
+
 
 
 

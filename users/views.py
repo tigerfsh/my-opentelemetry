@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, validator, EmailStr
 from datetime import datetime
 from typing import Optional
 
@@ -17,34 +17,22 @@ class UserProfileSchema(BaseModel):
 
 class UserCreate(BaseModel):
     username: str = Field(..., min_length=1, max_length=150)
-    email: Optional[str] = None
+    email: Optional[EmailStr] = None
     first_name: Optional[str] = None
     last_name: Optional[str] = None
     password: str = Field(..., min_length=1)
 
-    @validator('email')
-    def email_must_be_valid(cls, v):
-        if v and '@' not in v:
-            raise ValueError('邮箱格式无效')
-        return v
-
 class UserUpdate(BaseModel):
     username: Optional[str] = None
-    email: Optional[str] = None
+    email: Optional[EmailStr] = None
     first_name: Optional[str] = None
     last_name: Optional[str] = None
     password: Optional[str] = None
 
-    @validator('email')
-    def email_must_be_valid(cls, v):
-        if v and '@' not in v:
-            raise ValueError('邮箱格式无效')
-        return v
-
 class UserSchema(BaseModel):
     id: int
     username: str
-    email: Optional[str] = None
+    email: Optional[EmailStr] = None
     first_name: Optional[str] = None
     last_name: Optional[str] = None
     date_joined: datetime
@@ -53,6 +41,8 @@ class UserSchema(BaseModel):
 
     class Config:
         from_attributes = True
+
+
 from django.contrib.auth.models import User
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
@@ -66,7 +56,8 @@ from pydantic import ValidationError
 import json
 
 
-@require_http_methods(["GET", "POST"])
+@api_view(['GET', 'POST'])
+@permission_classes([])
 def user_list(request):
     """
     获取用户列表或创建新用户
@@ -166,7 +157,8 @@ def user_list(request):
             return JsonResponse({'error': f'创建用户失败: {str(e)}'}, status=500)
 
 
-@require_http_methods(["GET", "PUT", "DELETE"])
+@api_view(['GET', 'PUT', 'DELETE'])
+@permission_classes([])
 def user_detail(request, pk):
     """
     获取、更新或删除特定用户
