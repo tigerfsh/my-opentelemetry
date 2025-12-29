@@ -131,8 +131,7 @@ USE_TZ = True
 STATIC_URL = '/static/'
 
 # Media files (User uploads)
-MEDIA_URL = '/media/'
-# MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+MEDIA_URL = '/media/'  # 通过Django视图处理的媒体文件路径
 
 # RustFS/S3 storage configuration for avatars
 RUSTFS_ACCESS_KEY = os.getenv('RUSTFS_ACCESS_KEY', 'rustfsadmin')
@@ -164,3 +163,37 @@ REST_FRAMEWORK = {
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 20
 }
+
+# CORS配置
+CORS_ALLOW_ALL_ORIGINS = True  # 在生产环境中应该限制为特定域名
+
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost",
+    "http://localhost:80",  # Nginx代理
+    "http://127.0.0.1:80",
+    "http://localhost:8000",  # 后端开发服务器
+    "http://127.0.0.1:8000",
+    "http://localhost:8080",  # 前端开发服务器
+    "http://127.0.0.1:8080",
+]
+
+CORS_ALLOW_CREDENTIALS = True
+
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+]
+
+# AWS S3 settings for RustFS
+AWS_S3_FILE_OVERWRITE = False
+AWS_DEFAULT_ACL = None  # 不设置ACL，使用默认设置
+AWS_S3_VERIFY = False  # 不验证SSL证书
+AWS_S3_SIGNATURE_VERSION = 's3v4'  # 使用v4签名
+AWS_S3_ADDRESSING_STYLE = 'path'  # 使用路径风格访问

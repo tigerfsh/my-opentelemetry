@@ -346,3 +346,5 @@ def user_profile_detail(request, user_id):
         return Response({'error': '用户不存在'}, status=404)
     except Exception as e:
         return Response({'error': str(e)}, status=500)
+
+

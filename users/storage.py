@@ -27,3 +27,26 @@ class RustFSStorage(S3Boto3Storage):
             signature_version='s3v4',
             addressing_style='path'
         )
+
+    def url(self, name):
+        """
+        重写url方法，直接返回预签名URL
+        """
+        return self.generate_presigned_url(name, expire=3600)
+
+    def generate_presigned_url(self, name, expire=3600):
+        """
+        生成预签名URL，用于临时访问私有文件
+        """
+        s3_client = self.connection.meta.client
+        try:
+            response = s3_client.generate_presigned_url(
+                'get_object',
+                Params={'Bucket': self.bucket_name, 'Key': name},
+                ExpiresIn=expire,
+                HttpMethod='GET'
+            )
+            return response
+        except Exception as e:
+            print(f"生成预签名URL失败: {e}")
+            return None

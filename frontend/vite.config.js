@@ -19,6 +19,12 @@ export default defineConfig({
         target: 'http://app:8000',
         changeOrigin: true
       }
-    }
+    },
+    allowedHosts: [
+      'localhost',
+      '127.0.0.1',
+      'frontend',
+      '0.0.0.0'
+    ]
   }
 })
