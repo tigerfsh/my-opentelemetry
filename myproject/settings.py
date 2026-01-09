@@ -54,6 +54,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'myproject.middleware.GlobalExceptionMiddleware',  # 添加全局异常处理中间件
 ]
 
 ROOT_URLCONF = 'myproject.urls'
